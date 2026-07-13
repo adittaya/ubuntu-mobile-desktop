@@ -21,7 +21,7 @@ jobs:
         run: |
           echo "=== Bash Syntax Check ==="
           FAIL=0
-          for f in setup-all.sh setup-subsystems.sh setup-ubuntu.sh setup-desktop.sh setup-desktop-prebuilt.sh; do
+          for f in setup-all.sh setup-subsystems.sh setup-ubuntu.sh setup-desktop.sh setup-desktop-prebuilt.sh setup-performance.sh; do
             if bash -n "$f" 2>&1; then
               echo "  [OK] $f"
             else
@@ -34,7 +34,7 @@ jobs:
       - name: Shellcheck — all scripts
         run: |
           echo "=== Shellcheck ==="
-          for f in setup-all.sh setup-subsystems.sh setup-ubuntu.sh setup-desktop.sh setup-desktop-prebuilt.sh; do
+          for f in setup-all.sh setup-subsystems.sh setup-ubuntu.sh setup-desktop.sh setup-desktop-prebuilt.sh setup-performance.sh; do
             echo "--- $f ---"
             shellcheck -S warning "$f" || true
           done
@@ -48,7 +48,7 @@ jobs:
       - name: Verify all script files exist
         run: |
           echo "=== Checking script files ==="
-          for f in setup-all.sh setup-subsystems.sh setup-ubuntu.sh setup-desktop.sh setup-desktop-prebuilt.sh; do
+          for f in setup-all.sh setup-subsystems.sh setup-ubuntu.sh setup-desktop.sh setup-desktop-prebuilt.sh setup-performance.sh; do
             if [ -f "$f" ] && [ -r "$f" ]; then
               echo "  [OK] $f ($(wc -l < "$f") lines)"
             else
@@ -148,7 +148,7 @@ jobs:
       - name: Test VirGL in all scripts
         run: |
           echo "=== Checking VirGL GPU server ==="
-          for f in setup-all.sh setup-subsystems.sh; do
+          for f in setup-all.sh setup-subsystems.sh setup-performance.sh; do
             grep -q "virgl_test_server_android" "$f" && echo "  [OK] $f: VirGL server" || echo "  [FAIL] $f: missing VirGL"
           done
 
@@ -158,6 +158,14 @@ jobs:
 
           grep -q "virglrenderer-android" setup-all.sh && echo "  [OK] virglrenderer package in all-in-one" || echo "  [FAIL]"
           grep -q "virglrenderer-android" setup-subsystems.sh && echo "  [OK] virglrenderer package in subsystems" || echo "  [FAIL]"
+
+      - name: Test GPU auto-detection in all scripts
+        run: |
+          echo "=== Checking GPU auto-detection ==="
+          grep -q "getprop ro.hardware.egl" setup-performance.sh && echo "  [OK] GPU detection in performance script" || echo "  [FAIL] missing GPU detection"
+          grep -q "start-gpu-auto" setup-all.sh && echo "  [OK] start-gpu-auto in all-in-one" || echo "  [FAIL] missing start-gpu-auto"
+          grep -q "start-gpu-turnip" setup-all.sh && echo "  [OK] start-gpu-turnip in all-in-one" || echo "  [FAIL] missing start-gpu-turnip"
+          grep -q "start-gpu-angle" setup-all.sh && echo "  [OK] start-gpu-angle in all-in-one" || echo "  [FAIL] missing start-gpu-angle"
 
       - name: Test Mesa/GL client packages
         run: |
@@ -200,7 +208,7 @@ jobs:
       - name: Check executable permissions
         run: |
           echo "=== Checking executable permissions ==="
-          for f in setup-all.sh setup-subsystems.sh setup-ubuntu.sh setup-desktop.sh setup-desktop-prebuilt.sh; do
+          for f in setup-all.sh setup-subsystems.sh setup-ubuntu.sh setup-desktop.sh setup-desktop-prebuilt.sh setup-performance.sh; do
             if [ -x "$f" ]; then
               echo "  [OK] $f is executable"
             else
@@ -212,7 +220,7 @@ jobs:
       - name: Check shebang lines
         run: |
           echo "=== Checking shebang lines ==="
-          for f in setup-all.sh setup-subsystems.sh setup-ubuntu.sh setup-desktop.sh setup-desktop-prebuilt.sh; do
+          for f in setup-all.sh setup-subsystems.sh setup-ubuntu.sh setup-desktop.sh setup-desktop-prebuilt.sh setup-performance.sh; do
             SHEBANG=$(head -1 "$f")
             if echo "$SHEBANG" | grep -q "#!/usr/bin/env bash"; then
               echo "  [OK] $f"
@@ -238,7 +246,7 @@ jobs:
           grep -q "img.shields.io" README.md && echo "  [OK] Badges present" || echo "  [WARN] No badges"
           grep -q "adittaya/ubuntu-mobile-desktop" README.md && echo "  [OK] Repo URL correct" || echo "  [FAIL] Wrong repo URL"
 
-          for script in setup-all.sh setup-subsystems.sh setup-ubuntu.sh setup-desktop.sh setup-desktop-prebuilt.sh; do
+          for script in setup-all.sh setup-subsystems.sh setup-ubuntu.sh setup-desktop.sh setup-desktop-prebuilt.sh setup-performance.sh; do
             grep -q "$script" README.md && echo "  [OK] $script in README" || echo "  [FAIL] $script missing from README"
           done
 

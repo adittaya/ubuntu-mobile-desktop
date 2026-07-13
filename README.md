@@ -4,7 +4,7 @@
   <img src="https://img.shields.io/badge/Desktop-XFCE-blue?style=for-the-badge" alt="XFCE">
   <img src="https://img.shields.io/badge/GPU-VirGL-accent?style=for-the-badge" alt="VirGL">
   <img src="https://img.shields.io/badge/Audio-PulseAudio-purple?style=for-the-badge" alt="PulseAudio">
-  <img src="https://img.shields.io/badge/Scripts-5-brightgreen?style=for-the-badge" alt="Scripts">
+  <img src="https://img.shields.io/badge/Scripts-6-brightgreen?style=for-the-badge" alt="Scripts">
   <img src="https://img.shields.io/github/license/adittaya/ubuntu-mobile-desktop?style=for-the-badge" alt="License">
 </p>
 
@@ -35,11 +35,46 @@
 - **All-in-one installer** — single script sets up everything
 - **Modular scripts** — install only what you need, step by step
 - **Pre-built desktop** — ready-to-use XFCE with apps, themes, icons
-- **GPU acceleration** — VirGL provides OpenGL 4.3 compatibility
+- **GPU auto-detection** — Turnip+Zink (Adreno) or VirGL+ANGLE (Mali)
 - **Audio support** — PulseAudio with AAudio sink for Android audio
 - **No root required** — runs entirely in proot
-- **8 convenience commands** — `start-audio`, `start-x11`, `ubuntu`, `desktop`, etc.
+- **15+ convenience commands** — `start-gpu-auto`, `gpu`, `benchmark-gpu`, etc.
+- **Performance monitoring** — `monitor-gpu`, `monitor-thermal`, `optimize-desktop`
 - **GitHub Actions CI** — automated testing + release builds
+
+---
+
+## GPU Acceleration & Performance
+
+### Auto-Detection (v2.0.0+)
+
+The `start-gpu-auto` command detects your GPU and starts the best driver:
+
+| GPU | Driver | Performance |
+|-----|--------|-------------|
+| **Adreno** (Qualcomm) | Turnip + Zink | 2-3x faster than VirGL |
+| **Mali** (MediaTek/Dimensity) | VirGL + ANGLE | Best compatible option |
+
+### GPU Commands
+
+```bash
+start-gpu-auto       # Auto-detect and start GPU
+start-gpu-turnip     # Turnip+Zink (Adreno only)
+start-gpu-angle      # VirGL+ANGLE (Mali only)
+gpu <app>            # Run app with GPU acceleration
+monitor-gpu          # Show GPU info and processes
+benchmark-gpu        # Run GLMark2 benchmark
+optimize-desktop     # Pin desktop to big CPU cores
+monitor-thermal      # Show CPU/GPU temperatures
+```
+
+### Performance Tips
+
+- **Adreno users:** Always use `start-gpu-turnip` for 2-3x better performance
+- **Mali users:** Use `start-gpu-angle` for best compatibility
+- **Thermal throttling:** Run `monitor-thermal` to check temps
+- **CPU affinity:** Run `optimize-desktop` to pin XFCE to big cores
+- **Per-app GPU:** Run `gpu firefox` to launch Firefox with GPU acceleration
 
 ---
 
@@ -164,10 +199,18 @@ curl -sL https://raw.githubusercontent.com/adittaya/ubuntu-mobile-desktop/main/s
 | Command | Created By | Location | Description |
 |---------|-----------|----------|-------------|
 | `start-audio` | Script 1 | Termux `$PREFIX/bin/` | Start PulseAudio with AAudio sink |
-| `start-x11` | Script 1 | Termux `$PREFIX/bin/` | Start X11 server + VirGL GPU |
+| `start-x11` | Script 1 | Termux `$PREFIX/bin/` | Start X11 server + GPU |
 | `start-display` | Script 1 | Termux `$PREFIX/bin/` | Minimal X11 start (clean restart) |
 | `start-graphics` | Script 1 | Termux `$PREFIX/bin/` | Start only VirGL GPU server |
 | `start-wayland` | Script 1 | Termux `$PREFIX/bin/` | Bring Termux X11 app to foreground |
+| `start-gpu-auto` | Script 1 | Termux `$PREFIX/bin/` | Auto-detect GPU (Adreno/Mali) |
+| `start-gpu-turnip` | Script 1 | Termux `$PREFIX/bin/` | Turnip+Zink (Adreno) |
+| `start-gpu-angle` | Script 1 | Termux `$PREFIX/bin/` | VirGL+ANGLE (Mali) |
+| `gpu` | Script 1 | Termux `$PREFIX/bin/` | Run app with GPU acceleration |
+| `monitor-gpu` | Script 1 | Termux `$PREFIX/bin/` | Show GPU info and processes |
+| `monitor-thermal` | Script 1 | Termux `$PREFIX/bin/` | Show CPU/GPU temperatures |
+| `benchmark-gpu` | Script 1 | Termux `$PREFIX/bin/` | Run GLMark2 benchmark |
+| `optimize-desktop` | Script 1 | Termux `$PREFIX/bin/` | Pin desktop to big CPU cores |
 | `ubuntu` | Script 2 | Termux `$PREFIX/bin/` | Enter Ubuntu proot as user `ubuntu` |
 | `desktop` | Script 3/4 | Ubuntu `/usr/local/bin/` | Launch XFCE desktop session |
 | `desktop-prebuilt` | Script 4 | Ubuntu `/usr/local/bin/` | Launch pre-configured XFCE desktop |
@@ -214,7 +257,13 @@ Script 4 (`setup-desktop-prebuilt.sh`) installs a complete desktop with:
 - `proot-distro` — proot container manager
 - `termux-x11-nightly` — X11 display server
 - `virglrenderer-android` — VirGL GPU acceleration
+- `virglrenderer` — VirGL renderer
 - `pulseaudio` — audio server
+- `glmark2` — GPU benchmark (optional)
+- `mesa-zink` — Zink OpenGL driver (Adreno)
+- `vulkan-loader-android` — Vulkan loader
+- `mesa-vulkan-icd-freedreno-dri3` — Freedreno Vulkan ICD (Adreno)
+- `angle-android` — ANGLE (Mali)
 
 ### Ubuntu System (Script 2)
 - Ubuntu 22.04 base system
@@ -261,6 +310,7 @@ ubuntu-mobile-desktop/
 ├── setup-ubuntu.sh              # Script 2: Ubuntu install & login
 ├── setup-desktop.sh             # Script 3: Minimal XFCE desktop
 ├── setup-desktop-prebuilt.sh    # Script 4: Full XFCE with apps & themes
+├── setup-performance.sh         # Script 5: GPU optimization & performance
 ├── .gitignore
 ├── .github/
 │   └── workflows/

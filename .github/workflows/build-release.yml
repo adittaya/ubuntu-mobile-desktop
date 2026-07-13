@@ -6,6 +6,7 @@ on:
     paths:
       - "setup-all.sh"
       - "setup-desktop-prebuilt.sh"
+      - "setup-performance.sh"
       - ".github/workflows/build-release.yml"
   workflow_dispatch:
 
@@ -127,6 +128,40 @@ jobs:
           sudo chmod +x /opt/rootfs/usr/local/bin/desktop
           echo "Desktop launcher created"
 
+      - name: Create GPU launcher scripts
+        run: |
+          cat << 'CMDEOF' | sudo tee /opt/rootfs/usr/local/bin/gpu
+          #!/usr/bin/env bash
+          set -e
+          if [ $# -eq 0 ]; then
+              echo "Usage: gpu <command> [args...]"
+              echo "Run a command with GPU hardware acceleration."
+              exit 1
+          fi
+          export DISPLAY="${DISPLAY:-:0}"
+          export GALLIUM_DRIVER=virpipe
+          export MESA_GL_VERSION_OVERRIDE=4.1COMPAT
+          export MESA_GLSL_VERSION_OVERRIDE=410
+          unset LIBGL_ALWAYS_SOFTWARE
+          exec "$@"
+          CMDEOF
+          sudo chmod +x /opt/rootfs/usr/local/bin/gpu
+
+          cat << 'CMDEOF' | sudo tee /opt/rootfs/usr/local/bin/gpu-info
+          #!/usr/bin/env bash
+          set -e
+          echo "=== GPU Information ==="
+          if command -v getprop >/dev/null 2>&1; then
+              echo "EGL:     $(getprop ro.hardware.egl 2>/dev/null || echo N/A)"
+              echo "Vulkan:  $(getprop ro.hardware.vulkan 2>/dev/null || echo N/A)"
+          fi
+          echo ""
+          echo "=== GPU Processes ==="
+          ps -eo pid,cmd 2>/dev/null | grep -i "virgl\|vgl\|angle\|zink" | grep -v grep || echo "  None"
+          CMDEOF
+          sudo chmod +x /opt/rootfs/usr/local/bin/gpu-info
+          echo "GPU launcher scripts created"
+
       - name: Cleanup and create tarball
         run: |
           sudo rm -rf /opt/rootfs/var/cache/apt/archives/*.deb
@@ -138,25 +173,25 @@ jobs:
           echo "Rootfs size: $(sudo du -sh /opt/rootfs | cut -f1)"
 
           cd /opt
-          sudo tar -czf /tmp/ubuntu-mobile-desktop-rootfs-1.0.0-arm64.tar.gz \
+          sudo tar -czf /tmp/ubuntu-mobile-desktop-rootfs-2.0.0-arm64.tar.gz \
             -C /opt rootfs/ \
-            --transform='s|^rootfs|ubuntu-mobile-desktop-rootfs-1.0.0|'
+            --transform='s|^rootfs|ubuntu-mobile-desktop-rootfs-2.0.0|'
 
-          ls -lh /tmp/ubuntu-mobile-desktop-rootfs-1.0.0-arm64.tar.gz
+          ls -lh /tmp/ubuntu-mobile-desktop-rootfs-2.0.0-arm64.tar.gz
           echo "Tarball created"
 
       - name: Create checksum
         run: |
           cd /tmp
-          sha256sum ubuntu-mobile-desktop-rootfs-1.0.0-arm64.tar.gz > \
-            ubuntu-mobile-desktop-rootfs-1.0.0-arm64.tar.gz.sha256
-          cat ubuntu-mobile-desktop-rootfs-1.0.0-arm64.tar.gz.sha256
+          sha256sum ubuntu-mobile-desktop-rootfs-2.0.0-arm64.tar.gz > \
+            ubuntu-mobile-desktop-rootfs-2.0.0-arm64.tar.gz.sha256
+          cat ubuntu-mobile-desktop-rootfs-2.0.0-arm64.tar.gz.sha256
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: rootfs-tarball
-          path: /tmp/ubuntu-mobile-desktop-rootfs-1.0.0-arm64*
+          path: /tmp/ubuntu-mobile-desktop-rootfs-2.0.0-arm64*
           retention-days: 1
 
   create-release:
@@ -175,33 +210,39 @@ jobs:
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.0
-          name: "Pre-Built Ubuntu Desktop v1.0.0"
+          tag_name: v2.0.0
+          name: "Pre-Built Ubuntu Desktop v2.0.0"
           body: |
-            ## Pre-Built Ubuntu Desktop for Android
-
-            Pre-built Ubuntu 22.04 ARM64 rootfs with XFCE desktop, ready to use.
-
+            ## Pre-Built Ubuntu Desktop for Android — v2.0.0
+            
+            Pre-built Ubuntu 22.04 ARM64 rootfs with XFCE desktop, GPU auto-detection, and performance optimization.
+            
+            ### What's New in v2.0.0
+            - **GPU Auto-Detection:** Turnip+Zink for Adreno, VirGL+ANGLE for Mali
+            - **Performance Commands:** `gpu`, `gpu-info`, `benchmark-gpu`, `optimize-desktop`
+            - **Thermal Monitoring:** `monitor-thermal`
+            - Better memory management and process cleanup
+            
             ### What's Included
             - Ubuntu 22.04 (Jammy) ARM64
             - XFCE4 Desktop with Arc-Dark theme, Papirus-Dark icons
             - Firefox, VLC, File Manager, Terminal, Text Editor
             - Pre-configured panel, shortcuts, wallpapers
-            - Audio (PulseAudio) + GPU (VirGL) support
-
+            - Audio (PulseAudio) + GPU (VirGL/Turnip/ANGLE) support
+            
             ### Quick Install
             ```bash
             git clone https://github.com/adittaya/ubuntu-mobile-desktop.git
             cd ubuntu-mobile-desktop
             bash setup-all.sh --fast
             ```
-
+            
             ### Verify Checksum
             ```bash
-            sha256sum -c ubuntu-mobile-desktop-rootfs-1.0.0-arm64.tar.gz.sha256
+            sha256sum -c ubuntu-mobile-desktop-rootfs-2.0.0-arm64.tar.gz.sha256
             ```
           files: |
-            /tmp/release/ubuntu-mobile-desktop-rootfs-1.0.0-arm64.tar.gz
-            /tmp/release/ubuntu-mobile-desktop-rootfs-1.0.0-arm64.tar.gz.sha256
+            /tmp/release/ubuntu-mobile-desktop-rootfs-2.0.0-arm64.tar.gz
+            /tmp/release/ubuntu-mobile-desktop-rootfs-2.0.0-arm64.tar.gz.sha256
           draft: false
           prerelease: false

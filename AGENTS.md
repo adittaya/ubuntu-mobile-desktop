@@ -64,9 +64,17 @@
 |---------|-----------|----------|-------------|
 | `start-audio` | Script 1 | `$PREFIX/bin/` | Start PulseAudio with AAudio sink |
 | `start-graphics` | Script 1 | `$PREFIX/bin/` | Start VirGL GPU server |
-| `start-x11` | Script 1 | `$PREFIX/bin/` | Start X11 + VirGL together |
+| `start-x11` | Script 1 | `$PREFIX/bin/` | Start X11 + GPU together |
 | `start-display` | Script 1 | `$PREFIX/bin/` | Minimal X11 start (clean restart) |
 | `start-wayland` | Script 1 | `$PREFIX/bin/` | Bring Termux X11 to foreground |
+| `start-gpu-auto` | Script 1 | `$PREFIX/bin/` | Auto-detect GPU (Adreno/Mali) |
+| `start-gpu-turnip` | Script 1 | `$PREFIX/bin/` | Turnip+Zink (Adreno) |
+| `start-gpu-angle` | Script 1 | `$PREFIX/bin/` | VirGL+ANGLE (Mali) |
+| `gpu` | Script 1 | `$PREFIX/bin/` | Run app with GPU acceleration |
+| `monitor-gpu` | Script 1 | `$PREFIX/bin/` | Show GPU info and processes |
+| `monitor-thermal` | Script 1 | `$PREFIX/bin/` | Show CPU/GPU temperatures |
+| `benchmark-gpu` | Script 1 | `$PREFIX/bin/` | Run GLMark2 benchmark |
+| `optimize-desktop` | Script 1 | `$PREFIX/bin/` | Pin desktop to big CPU cores |
 | `ubuntu` | Script 2 | `$PREFIX/bin/` | Enter Ubuntu proot shell |
 | `desktop` | Script 3 | `/usr/local/bin/` | Launch XFCE desktop |
 | `desktop-prebuilt` | Script 4 | `/usr/local/bin/` | Launch pre-configured XFCE desktop |
@@ -103,17 +111,61 @@ Applications (firefox, mpv, etc.)
 
 ## GPU PIPELINE
 
+### Adreno (Qualcomm/ Snapdragon)
+
 ```
-Android GPU (Adreno/Mali)
-    ↑ (EGL/GLES)
-VirGL Server (virgl_test_server_android) — Termux
-    ↑ (virtio-GPU socket)
+Android GPU (Adreno)
+    ↑ (Vulkan)
+Turnip Driver (vulkan-loader-android) — Termux
+    ↑ (Zink)
+Mesa Zink Driver (MESA_LOADER_DRIVER_OVERRIDE=zink) — Ubuntu
+    ↑ (OpenGL 4.3)
+Applications (firefox, libreoffice, etc.)
+```
+
+### Mali (MediaTek/Dimensity)
+
+```
+Android GPU (Mali)
+    ↑ (Vulkan)
+VirGL + ANGLE (virglrenderer-android --angle-vulkan) — Termux
+    ↑ (virtio-GPU)
 Mesa Gallium Driver (virpipe) — Ubuntu
     ↑ (OpenGL 4.3)
 Applications (firefox, libreoffice, etc.)
 ```
 
-**Key:** VirGL server runs in Termux, Ubuntu apps use virpipe driver.
+### Unknown GPU (Fallback)
+
+```
+Android GPU
+    ↑ (EGL)
+VirGL Server (virgl_test_server_android) — Termux
+    ↑ (virtio-GPU)
+Mesa Gallium Driver (virpipe) — Ubuntu
+    ↑ (OpenGL 4.3)
+Applications (firefox, libreoffice, etc.)
+```
+
+---
+
+## GPU DETECTION LOGIC
+
+```bash
+# Auto-detect GPU type
+GPU_INFO=$(getprop ro.hardware.egl 2>/dev/null || echo "")
+
+if echo "$GPU_INFO" | grep -qi "adreno\|qualcomm\|qcom"; then
+    # Adreno: Turnip + Zink (2-3x faster)
+    start-gpu-turnip
+elif echo "$GPU_INFO" | grep -qi "mali\|arm\|mediatek"; then
+    # Mali: VirGL + ANGLE
+    start-gpu-angle
+else
+    # Unknown: VirGL fallback
+    virgl_test_server_android
+fi
+```
 
 ---
 
