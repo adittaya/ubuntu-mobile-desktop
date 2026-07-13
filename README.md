@@ -4,14 +4,14 @@
   <img src="https://img.shields.io/badge/Desktop-XFCE-blue?style=for-the-badge" alt="XFCE">
   <img src="https://img.shields.io/badge/GPU-VirGL-accent?style=for-the-badge" alt="VirGL">
   <img src="https://img.shields.io/badge/Audio-PulseAudio-purple?style=for-the-badge" alt="PulseAudio">
-  <img src="https://img.shields.io/github/license/adittaya/termux-ubuntu-gui?style=for-the-badge" alt="License">
+  <img src="https://img.shields.io/github/license/adittaya/ubuntu-mobile-desktop?style=for-the-badge" alt="License">
 </p>
 
-<h1 align="center">Termux X11 + Ubuntu Proot<br>Full GUI Desktop on Android</h1>
+<h1 align="center">Ubuntu Desktop Environment on Mobile<br>Full XFCE GUI on Android via Termux</h1>
 
 <p align="center">
-  <b>Run a complete XFCE desktop environment on your Android device</b><br>
-  with GPU acceleration, audio, and a full Ubuntu installation — all through Termux.
+  <b>Run a full Ubuntu desktop environment on your Android phone or tablet</b><br>
+  with XFCE, GPU acceleration (VirGL), audio (PulseAudio), and proot — no root required.
 </p>
 
 ---
@@ -60,8 +60,8 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/adittaya/termux-ubuntu-gui.git
-cd termux-ubuntu-gui
+git clone https://github.com/adittaya/ubuntu-mobile-desktop.git
+cd ubuntu-mobile-desktop
 
 # Run the installer
 bash setup-termux-gui.sh
@@ -70,7 +70,7 @@ bash setup-termux-gui.sh
 Or download and run directly:
 
 ```bash
-wget https://raw.githubusercontent.com/adittaya/termux-ubuntu-gui/main/setup-termux-gui.sh
+wget https://raw.githubusercontent.com/adittaya/ubuntu-mobile-desktop/main/setup-termux-gui.sh
 bash setup-termux-gui.sh
 ```
 
@@ -168,7 +168,7 @@ These are set automatically by the `desktop` command:
 ## Project Structure
 
 ```
-termux-ubuntu-gui/
+ubuntu-mobile-desktop/
 ├── README.md              # This file
 ├── LICENSE                # MIT License
 ├── CONTRIBUTING.md        # Contribution guidelines

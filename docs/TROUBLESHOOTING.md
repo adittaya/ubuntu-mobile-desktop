@@ -245,7 +245,7 @@ apt autoremove -y
 
 ## Still Stuck?
 
-1. Check the [GitHub Issues](https://github.com/adittaya/termux-ubuntu-gui/issues)
+1. Check the [GitHub Issues](https://github.com/adittaya/ubuntu-mobile-desktop/issues)
 2. Search for your error message
 3. Open a new issue with:
    - Android version
