@@ -21,7 +21,7 @@ jobs:
         run: |
           echo "=== Bash Syntax Check ==="
           FAIL=0
-          for f in setup-all.sh setup-subsystems.sh setup-ubuntu.sh setup-desktop.sh setup-desktop-prebuilt.sh setup-performance.sh; do
+          for f in install.sh setup-all.sh setup-subsystems.sh setup-ubuntu.sh setup-desktop.sh setup-desktop-prebuilt.sh setup-performance.sh; do
             if bash -n "$f" 2>&1; then
               echo "  [OK] $f"
             else
@@ -34,7 +34,7 @@ jobs:
       - name: Shellcheck — all scripts
         run: |
           echo "=== Shellcheck ==="
-          for f in setup-all.sh setup-subsystems.sh setup-ubuntu.sh setup-desktop.sh setup-desktop-prebuilt.sh setup-performance.sh; do
+          for f in install.sh setup-all.sh setup-subsystems.sh setup-ubuntu.sh setup-desktop.sh setup-desktop-prebuilt.sh setup-performance.sh; do
             echo "--- $f ---"
             shellcheck -S warning "$f" || true
           done
@@ -48,7 +48,7 @@ jobs:
       - name: Verify all script files exist
         run: |
           echo "=== Checking script files ==="
-          for f in setup-all.sh setup-subsystems.sh setup-ubuntu.sh setup-desktop.sh setup-desktop-prebuilt.sh setup-performance.sh; do
+          for f in install.sh setup-all.sh setup-subsystems.sh setup-ubuntu.sh setup-desktop.sh setup-desktop-prebuilt.sh setup-performance.sh; do
             if [ -f "$f" ] && [ -r "$f" ]; then
               echo "  [OK] $f ($(wc -l < "$f") lines)"
             else
@@ -208,7 +208,7 @@ jobs:
       - name: Check executable permissions
         run: |
           echo "=== Checking executable permissions ==="
-          for f in setup-all.sh setup-subsystems.sh setup-ubuntu.sh setup-desktop.sh setup-desktop-prebuilt.sh setup-performance.sh; do
+          for f in install.sh setup-all.sh setup-subsystems.sh setup-ubuntu.sh setup-desktop.sh setup-desktop-prebuilt.sh setup-performance.sh; do
             if [ -x "$f" ]; then
               echo "  [OK] $f is executable"
             else
@@ -220,7 +220,7 @@ jobs:
       - name: Check shebang lines
         run: |
           echo "=== Checking shebang lines ==="
-          for f in setup-all.sh setup-subsystems.sh setup-ubuntu.sh setup-desktop.sh setup-desktop-prebuilt.sh setup-performance.sh; do
+          for f in install.sh setup-all.sh setup-subsystems.sh setup-ubuntu.sh setup-desktop.sh setup-desktop-prebuilt.sh setup-performance.sh; do
             SHEBANG=$(head -1 "$f")
             if echo "$SHEBANG" | grep -q "#!/usr/bin/env bash"; then
               echo "  [OK] $f"
@@ -246,7 +246,7 @@ jobs:
           grep -q "img.shields.io" README.md && echo "  [OK] Badges present" || echo "  [WARN] No badges"
           grep -q "adittaya/ubuntu-mobile-desktop" README.md && echo "  [OK] Repo URL correct" || echo "  [FAIL] Wrong repo URL"
 
-          for script in setup-all.sh setup-subsystems.sh setup-ubuntu.sh setup-desktop.sh setup-desktop-prebuilt.sh setup-performance.sh; do
+          for script in install.sh setup-all.sh setup-subsystems.sh setup-ubuntu.sh setup-desktop.sh setup-desktop-prebuilt.sh setup-performance.sh; do
             grep -q "$script" README.md && echo "  [OK] $script in README" || echo "  [FAIL] $script missing from README"
           done
 

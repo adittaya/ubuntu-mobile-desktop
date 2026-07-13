@@ -94,7 +94,15 @@ monitor-thermal      # Show CPU/GPU temperatures
 
 ## Quick Start
 
-### Option A: Fast Install (Pre-Built Tarball) — Recommended
+### Option A: Global One-Liner — Fastest
+
+```bash
+curl -sL https://raw.githubusercontent.com/adittaya/ubuntu-mobile-desktop/main/install.sh | bash
+```
+
+One command. Downloads scripts, installs Ubuntu+XFCE, starts everything. Done in ~5 minutes.
+
+### Option B: Fast Install (Pre-Built Tarball)
 
 ```bash
 # Clone and run (auto-downloads pre-built Ubuntu+XFCE)
@@ -151,6 +159,7 @@ curl -sL https://raw.githubusercontent.com/adittaya/ubuntu-mobile-desktop/main/s
 
 | Script | Run In | Description |
 |--------|--------|-------------|
+| `install.sh` | Termux | **Global one-shot** — downloads everything & installs |
 | `setup-all.sh` | Termux | **All-in-one** — does everything in one shot |
 | `setup-subsystems.sh` | Termux | Installs packages & creates Termux commands |
 | `setup-ubuntu.sh` | Termux | Installs Ubuntu & creates login command |
@@ -305,6 +314,7 @@ ubuntu-mobile-desktop/
 ├── AGENTS.md                    # Project rules & AI reminders
 ├── LICENSE                      # MIT License
 ├── CONTRIBUTING.md              # Contribution guidelines
+├── install.sh                   # Global one-shot installer
 ├── setup-all.sh                 # All-in-one installer (fast/full modes)
 ├── setup-subsystems.sh          # Script 1: Termux packages & commands
 ├── setup-ubuntu.sh              # Script 2: Ubuntu install & login
