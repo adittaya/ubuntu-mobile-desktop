@@ -4,6 +4,7 @@
   <img src="https://img.shields.io/badge/Desktop-XFCE-blue?style=for-the-badge" alt="XFCE">
   <img src="https://img.shields.io/badge/GPU-VirGL-accent?style=for-the-badge" alt="VirGL">
   <img src="https://img.shields.io/badge/Audio-PulseAudio-purple?style=for-the-badge" alt="PulseAudio">
+  <img src="https://img.shields.io/badge/Scripts-5-brightgreen?style=for-the-badge" alt="Scripts">
   <img src="https://img.shields.io/github/license/adittaya/ubuntu-mobile-desktop?style=for-the-badge" alt="License">
 </p>
 
@@ -30,13 +31,13 @@
 
 ## Features
 
-- **3-step modular setup** — install only what you need
+- **All-in-one installer** — single script sets up everything
+- **Modular scripts** — install only what you need, step by step
+- **Pre-built desktop** — ready-to-use XFCE with apps, themes, icons
 - **GPU acceleration** — VirGL provides OpenGL 4.3 compatibility
 - **Audio support** — PulseAudio with AAudio sink for Android audio
-- **XFCE desktop** — lightweight, customizable, full-featured
-- **Persistent install** — survives Termux restarts
 - **No root required** — runs entirely in proot
-- **Convenience commands** — `start-audio`, `start-x11`, `ubuntu`, `desktop`
+- **8 convenience commands** — `start-audio`, `start-x11`, `ubuntu`, `desktop`, etc.
 
 ---
 
@@ -54,124 +55,187 @@
 
 ---
 
-## Quick Start (One-Liners)
+## Quick Start
 
-### Script 1: Install Subsystems (Termux)
-
-```bash
-curl -sL https://raw.githubusercontent.com/adittaya/ubuntu-mobile-desktop/main/setup-subsystems.sh | bash
-```
-
-### Script 2: Install Ubuntu (Termux)
+### Option A: All-in-One (Recommended)
 
 ```bash
-curl -sL https://raw.githubusercontent.com/adittaya/ubuntu-mobile-desktop/main/setup-ubuntu.sh | bash
+# Clone and run everything at once
+git clone https://github.com/adittaya/ubuntu-mobile-desktop.git
+cd ubuntu-mobile-desktop
+bash setup-all.sh
 ```
 
-### Script 3: Install Desktop (Inside Ubuntu)
+Then:
+```bash
+start-audio
+start-x11
+# Open Termux X11 app
+ubuntu
+desktop
+```
+
+### Option B: Step-by-Step (Modular)
 
 ```bash
-curl -sL https://raw.githubusercontent.com/adittaya/ubuntu-mobile-desktop/main/setup-desktop.sh | bash
+# Step 1: Install subsystems (Termux)
+bash setup-subsystems.sh
+
+# Step 2: Install Ubuntu (Termux)
+bash setup-ubuntu.sh
+
+# Step 3: Start services (Termux)
+start-audio
+start-x11
+# Open Termux X11 app
+
+# Step 4: Enter Ubuntu
+ubuntu
+
+# Step 5: Install desktop (Ubuntu) — choose one:
+bash setup-desktop.sh          # Minimal XFCE
+bash setup-desktop-prebuilt.sh # Full XFCE with apps & themes
+
+# Step 6: Launch
+desktop              # or: desktop-prebuilt
 ```
+
+### Option C: One-Liner Install
+
+```bash
+# All-in-one via curl
+curl -sL https://raw.githubusercontent.com/adittaya/ubuntu-mobile-desktop/main/setup-all.sh | bash
+```
+
+---
+
+## Scripts Overview
+
+| Script | Run In | Description |
+|--------|--------|-------------|
+| `setup-all.sh` | Termux | **All-in-one** — does everything in one shot |
+| `setup-subsystems.sh` | Termux | Installs packages & creates Termux commands |
+| `setup-ubuntu.sh` | Termux | Installs Ubuntu & creates login command |
+| `setup-desktop.sh` | Ubuntu | **Minimal** XFCE desktop install |
+| `setup-desktop-prebuilt.sh` | Ubuntu | **Full** XFCE with apps, themes, icons, shortcuts |
 
 ---
 
 ## Full Workflow
 
 ```
-┌──────────────────────────────────────────────────────┐
-│                   TERMUX SHELL                       │
-│                                                      │
-│  Step 1 — Install subsystems                         │
-│  $ bash setup-subsystems.sh                          │
-│    → Installs: pulseaudio, virgl, termux-x11         │
-│    → Creates: start-audio, start-x11, etc.           │
-│                                                      │
-│  Step 2 — Install Ubuntu                             │
-│  $ bash setup-ubuntu.sh                              │
-│    → Installs: Ubuntu proot                          │
-│    → Creates: ubuntu login command                   │
-│                                                      │
-│  Step 3 — Start services                             │
-│  $ start-audio                                       │
-│  $ start-x11                                         │
-│  → Open Termux X11 app                               │
-│                                                      │
-│  Step 4 — Enter Ubuntu                               │
-│  $ ubuntu                                            │
-│  ┌──────────────────────────────────────────────┐    │
-│  │              UBUNTU SHELL                    │    │
-│  │                                              │    │
-│  Step 5 — Install desktop (first time only)      │    │
-│  $ bash setup-desktop.sh                         │    │
-│    → Installs: XFCE, dbus, mesa                   │    │
-│    → Creates: desktop launcher command            │    │
-│                                              │    │
-│  Step 6 — Launch desktop                         │    │
-│  $ desktop                                       │    │
-│  ┌──────────────────────────────────────────┐   │    │
-│  │          XFCE DESKTOP                    │   │    │
-│  │          (in Termux X11)                 │   │    │
-│  └──────────────────────────────────────────┘   │    │
-│  └──────────────────────────────────────────┘    │    │
-│  └──────────────────────────────────────────────┘    │
-└──────────────────────────────────────────────────────┘
-```
-
----
-
-## One-Liner Install (All 3 Scripts)
-
-```bash
-# Clone and run all scripts in order
-git clone https://github.com/adittaya/ubuntu-mobile-desktop.git && \
-cd ubuntu-mobile-desktop && \
-bash setup-subsystems.sh && \
-bash setup-ubuntu.sh && \
-start-audio && start-x11 && \
-ubuntu -c "bash setup-desktop.sh && desktop"
+┌──────────────────────────────────────────────────────────┐
+│                     TERMUX SHELL                         │
+│                                                          │
+│  $ bash setup-all.sh          ← OR →                     │
+│  $ bash setup-subsystems.sh                              │
+│  $ bash setup-ubuntu.sh                                  │
+│                                                          │
+│  $ start-audio                                           │
+│  $ start-x11                                             │
+│  ┌────────────────────────────────────────────┐          │
+│  │         Open Termux X11 App                │          │
+│  └────────────────────────────────────────────┘          │
+│                                                          │
+│  $ ubuntu                                                │
+│  ┌────────────────────────────────────────────┐          │
+│  │            UBUNTU SHELL                    │          │
+│  │                                            │          │
+│  │  $ bash setup-desktop.sh                  │          │
+│  │       OR                                  │          │
+│  │  $ bash setup-desktop-prebuilt.sh         │          │
+│  │                                            │          │
+│  │  $ desktop (or desktop-prebuilt)           │          │
+│  │  ┌──────────────────────────────────┐     │          │
+│  │  │       XFCE DESKTOP               │     │          │
+│  │  │       (in Termux X11)            │     │          │
+│  │  └──────────────────────────────────┘     │          │
+│  └────────────────────────────────────────────┘          │
+└──────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## Commands Reference
 
-| Command | Location | Created By | Description |
-|---------|----------|------------|-------------|
-| `start-audio` | Termux | Script 1 | Start PulseAudio with AAudio sink |
-| `start-x11` | Termux | Script 1 | Start X11 server + VirGL GPU |
-| `start-display` | Termux | Script 1 | Minimal X11 start (clean restart) |
-| `start-graphics` | Termux | Script 1 | Start only VirGL GPU server |
-| `start-wayland` | Termux | Script 1 | Bring Termux X11 app to foreground |
-| `ubuntu` | Termux | Script 2 | Enter Ubuntu proot as user `ubuntu` |
-| `desktop` | Ubuntu | Script 3 | Launch XFCE desktop session |
+| Command | Created By | Location | Description |
+|---------|-----------|----------|-------------|
+| `start-audio` | Script 1 | Termux `$PREFIX/bin/` | Start PulseAudio with AAudio sink |
+| `start-x11` | Script 1 | Termux `$PREFIX/bin/` | Start X11 server + VirGL GPU |
+| `start-display` | Script 1 | Termux `$PREFIX/bin/` | Minimal X11 start (clean restart) |
+| `start-graphics` | Script 1 | Termux `$PREFIX/bin/` | Start only VirGL GPU server |
+| `start-wayland` | Script 1 | Termux `$PREFIX/bin/` | Bring Termux X11 app to foreground |
+| `ubuntu` | Script 2 | Termux `$PREFIX/bin/` | Enter Ubuntu proot as user `ubuntu` |
+| `desktop` | Script 3/4 | Ubuntu `/usr/local/bin/` | Launch XFCE desktop session |
+| `desktop-prebuilt` | Script 4 | Ubuntu `/usr/local/bin/` | Launch pre-configured XFCE desktop |
+
+---
+
+## Pre-Built Desktop Features
+
+Script 4 (`setup-desktop-prebuilt.sh`) installs a complete desktop with:
+
+### Applications
+- **Firefox** — Web browser
+- **VLC** — Media player
+- **Thunar** — File manager
+- **Mousepad / Pluma** — Text editors
+- **xterm / LXTerminal** — Terminal emulators
+- **Ristretto** — Image viewer
+- **Parole** — Video player
+- **Neofetch** — System info
+
+### Themes & Icons
+- **Arc-Dark** — GTK theme
+- **Papirus-Dark** — Icon theme
+- **Noto Sans** — Font family
+
+### Pre-Configured Shortcuts
+| Shortcut | Action |
+|----------|--------|
+| `Super+T` | Open Terminal |
+| `Super+E` | Open File Manager |
+| `Super+L` | Lock Screen |
+| `Ctrl+Alt+T` | Open Terminal |
+| `Ctrl+Alt+Delete` | Logout Menu |
+| `Print` | Screenshot |
+
+### Panel Layout
+- Bottom panel with whisker menu, taskbar, clock, system tray, audio controls
 
 ---
 
 ## What Gets Installed
 
-### Script 1 — Termux Packages
+### Termux Packages (Script 1)
 - `proot-distro` — proot container manager
 - `termux-x11-nightly` — X11 display server
 - `virglrenderer-android` — VirGL GPU acceleration
 - `pulseaudio` — audio server
 
-### Script 2 — Ubuntu System
+### Ubuntu System (Script 2)
 - Ubuntu 22.04 base system
 - `sudo` — privilege management
 - User `ubuntu` with passwordless sudo
 
-### Script 3 — Ubuntu Desktop Packages
+### Desktop Packages (Script 3 — Minimal)
 - `xfce4` + `xfce4-goodies` — desktop environment
 - `dbus-x11` + `xauth` — display session support
 - `mesa-utils` — OpenGL utilities
 - `alsa-utils` — audio utilities
 
+### Pre-Built Packages (Script 4 — Full)
+Everything in Script 3, plus:
+- `firefox`, `vlc`, `thunar`, `mousepad`, `pluma`
+- `xterm`, `lxterminal`, `ristretto`, `parole`
+- `arc-theme`, `papirus-icon-theme`
+- `network-manager`, `gnome-screenshot`
+- `fonts-noto`, `fonts-liberation`
+- `ffmpeg`, `htop`, `neofetch`, `tree`
+
 ---
 
 ## Environment Variables
-
-These are set automatically by the `desktop` command:
 
 | Variable | Value | Purpose |
 |----------|-------|---------|
@@ -185,15 +249,21 @@ These are set automatically by the `desktop` command:
 
 ```
 ubuntu-mobile-desktop/
-├── README.md                # This file
-├── LICENSE                  # MIT License
-├── CONTRIBUTING.md          # Contribution guidelines
-├── setup-subsystems.sh      # Script 1: Termux packages & commands
-├── setup-ubuntu.sh          # Script 2: Ubuntu install & login
-├── setup-desktop.sh         # Script 3: XFCE desktop & launcher
+├── README.md                    # This file
+├── AGENTS.md                    # Project rules & AI reminders
+├── LICENSE                      # MIT License
+├── CONTRIBUTING.md              # Contribution guidelines
+├── setup-all.sh                 # Script 0: All-in-one installer
+├── setup-subsystems.sh          # Script 1: Termux packages & commands
+├── setup-ubuntu.sh              # Script 2: Ubuntu install & login
+├── setup-desktop.sh             # Script 3: Minimal XFCE desktop
+├── setup-desktop-prebuilt.sh    # Script 4: Full XFCE with apps & themes
 ├── .gitignore
+├── .github/
+│   └── workflows/
+│       └── test.yml             # GitHub Actions CI tests
 └── docs/
-    └── TROUBLESHOOTING.md   # Common issues & fixes
+    └── TROUBLESHOOTING.md       # Common issues & fixes
 ```
 
 ---
@@ -229,6 +299,8 @@ This project is licensed under the MIT License — see [LICENSE](LICENSE) for de
 - [proot-distro](https://github.com/termux/proot-distro) — proot container management
 - [VirGL](https://gitlab.freedesktop.org/virgl/) — Virgil3D GPU emulation
 - [XFCE](https://xfce.org) — lightweight desktop environment
+- [Arc Theme](https://github.com/horst3180/arc-theme) — GTK theme
+- [Papirus Icons](https://github.com/PapirusDevelopmentTeam/papirus-icon-theme) — Icon theme
 
 ---
 

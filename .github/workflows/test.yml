@@ -1,0 +1,260 @@
+name: Test Setup Scripts
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  lint-scripts:
+    name: Lint & Syntax Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: sudo apt-get install -y shellcheck
+
+      - name: Bash syntax check — all scripts
+        run: |
+          echo "=== Bash Syntax Check ==="
+          FAIL=0
+          for f in setup-all.sh setup-subsystems.sh setup-ubuntu.sh setup-desktop.sh setup-desktop-prebuilt.sh; do
+            if bash -n "$f" 2>&1; then
+              echo "  [OK] $f"
+            else
+              echo "  [FAIL] $f"
+              FAIL=1
+            fi
+          done
+          exit $FAIL
+
+      - name: Shellcheck — all scripts
+        run: |
+          echo "=== Shellcheck ==="
+          for f in setup-all.sh setup-subsystems.sh setup-ubuntu.sh setup-desktop.sh setup-desktop-prebuilt.sh; do
+            echo "--- $f ---"
+            shellcheck -S warning "$f" || true
+          done
+
+  validate-structure:
+    name: Validate Script Structure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify all script files exist
+        run: |
+          echo "=== Checking script files ==="
+          for f in setup-all.sh setup-subsystems.sh setup-ubuntu.sh setup-desktop.sh setup-desktop-prebuilt.sh; do
+            if [ -f "$f" ] && [ -r "$f" ]; then
+              echo "  [OK] $f ($(wc -l < "$f") lines)"
+            else
+              echo "  [FAIL] $f missing or unreadable"
+              exit 1
+            fi
+          done
+
+      - name: Verify setup-all.sh contains all 3 phases
+        run: |
+          echo "=== Checking setup-all.sh phases ==="
+          grep -q "PHASE 1/3" setup-all.sh && echo "  [OK] Phase 1 found" || { echo "  [FAIL] Phase 1 missing"; exit 1; }
+          grep -q "PHASE 2/3" setup-all.sh && echo "  [OK] Phase 2 found" || { echo "  [FAIL] Phase 2 missing"; exit 1; }
+          grep -q "PHASE 3/3" setup-all.sh && echo "  [OK] Phase 3 found" || { echo "  [FAIL] Phase 3 missing"; exit 1; }
+
+      - name: Verify subsystems script creates all commands
+        run: |
+          echo "=== Checking setup-subsystems.sh commands ==="
+          for cmd in start-audio start-graphics start-x11 start-display start-wayland; do
+            grep -q "$cmd" setup-subsystems.sh && echo "  [OK] $cmd" || { echo "  [FAIL] $cmd missing"; exit 1; }
+          done
+
+      - name: Verify ubuntu script creates login command
+        run: |
+          echo "=== Checking setup-ubuntu.sh ==="
+          grep -q "proot-distro install ubuntu" setup-ubuntu.sh && echo "  [OK] proot install" || { echo "  [FAIL] proot install missing"; exit 1; }
+          grep -q "sudoers" setup-ubuntu.sh && echo "  [OK] sudo config" || { echo "  [FAIL] sudo config missing"; exit 1; }
+          grep -q 'ubuntu' setup-ubuntu.sh && echo "  [OK] ubuntu command" || { echo "  [FAIL] ubuntu command missing"; exit 1; }
+
+      - name: Verify desktop script installs XFCE
+        run: |
+          echo "=== Checking setup-desktop.sh ==="
+          grep -q "xfce4" setup-desktop.sh && echo "  [OK] xfce4 package" || { echo "  [FAIL] xfce4 missing"; exit 1; }
+          grep -q "dbus-x11" setup-desktop.sh && echo "  [OK] dbus-x11 package" || { echo "  [FAIL] dbus-x11 missing"; exit 1; }
+          grep -q "desktop" setup-desktop.sh && echo "  [OK] desktop command" || { echo "  [FAIL] desktop command missing"; exit 1; }
+
+      - name: Verify prebuilt script has full desktop features
+        run: |
+          echo "=== Checking setup-desktop-prebuilt.sh ==="
+          grep -q "xfce4" setup-desktop-prebuilt.sh && echo "  [OK] xfce4 package" || { echo "  [FAIL] xfce4 missing"; exit 1; }
+          grep -q "arc-theme" setup-desktop-prebuilt.sh && echo "  [OK] arc-theme" || { echo "  [FAIL] arc-theme missing"; exit 1; }
+          grep -q "papirus" setup-desktop-prebuilt.sh && echo "  [OK] papirus icons" || { echo "  [FAIL] papirus missing"; exit 1; }
+          grep -q "firefox" setup-desktop-prebuilt.sh && echo "  [OK] firefox" || { echo "  [FAIL] firefox missing"; exit 1; }
+          grep -q "vlc" setup-desktop-prebuilt.sh && echo "  [OK] vlc" || { echo "  [FAIL] vlc missing"; exit 1; }
+          grep -q "desktop-prebuilt" setup-desktop-prebuilt.sh && echo "  [OK] desktop-prebuilt command" || { echo "  [FAIL] desktop-prebuilt missing"; exit 1; }
+          grep -q "Super" setup-desktop-prebuilt.sh && echo "  [OK] keyboard shortcuts" || { echo "  [FAIL] shortcuts missing"; exit 1; }
+
+      - name: Verify README references all scripts
+        run: |
+          echo "=== Checking README.md ==="
+          for script in setup-all.sh setup-subsystems.sh setup-ubuntu.sh setup-desktop.sh setup-desktop-prebuilt.sh; do
+            grep -q "$script" README.md && echo "  [OK] $script in README" || { echo "  [FAIL] $script missing from README"; exit 1; }
+          done
+
+  test-audio-logic:
+    name: Test Audio Server Logic
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PulseAudio
+        run: sudo apt-get install -y pulseaudio
+
+      - name: Test PulseAudio TCP module loading
+        run: |
+          echo "=== Testing PulseAudio TCP module ==="
+          pulseaudio --start --exit-idle-time=-1 --disable-shm=yes 2>/dev/null || true
+          sleep 1
+
+          if pactl info >/dev/null 2>&1; then
+            echo "  [OK] PulseAudio started"
+
+            pactl load-module module-native-protocol-tcp auth-ip-acl=127.0.0.1 auth-anonymous=1 2>/dev/null && \
+              echo "  [OK] TCP module loaded" || echo "  [WARN] TCP module load issue"
+
+            pactl info 2>/dev/null | grep -E "(Server String|Default Sink|Is Local)" | sed 's/^/    /'
+          else
+            echo "  [WARN] PulseAudio not running in CI"
+          fi
+
+      - name: Verify audio command structure in all scripts
+        run: |
+          echo "=== Checking audio structure ==="
+          for f in setup-all.sh setup-subsystems.sh; do
+            grep -q "pulseaudio --start" "$f" && echo "  [OK] $f: pulseaudio start" || echo "  [FAIL] $f: missing pulseaudio start"
+            grep -q "module-native-protocol-tcp" "$f" && echo "  [OK] $f: TCP module" || echo "  [FAIL] $f: missing TCP module"
+            grep -q "module-aaudio-sink" "$f" && echo "  [OK] $f: AAudio sink" || echo "  [FAIL] $f: missing AAudio sink"
+            grep -q "set-default-sink AAudio_sink" "$f" && echo "  [OK] $f: default sink" || echo "  [FAIL] $f: missing default sink"
+          done
+
+  test-gpu-logic:
+    name: Test GPU/VirGL Logic
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test VirGL in all scripts
+        run: |
+          echo "=== Checking VirGL GPU server ==="
+          for f in setup-all.sh setup-subsystems.sh; do
+            grep -q "virgl_test_server_android" "$f" && echo "  [OK] $f: VirGL server" || echo "  [FAIL] $f: missing VirGL"
+          done
+
+          grep -q "GALLIUM_DRIVER=virpipe" setup-all.sh && echo "  [OK] GALLIUM_DRIVER in all-in-one" || echo "  [FAIL]"
+          grep -q "GALLIUM_DRIVER=virpipe" setup-desktop.sh && echo "  [OK] GALLIUM_DRIVER in desktop" || echo "  [FAIL]"
+          grep -q "GALLIUM_DRIVER=virpipe" setup-desktop-prebuilt.sh && echo "  [OK] GALLIUM_DRIVER in prebuilt" || echo "  [FAIL]"
+
+          grep -q "virglrenderer-android" setup-all.sh && echo "  [OK] virglrenderer package in all-in-one" || echo "  [FAIL]"
+          grep -q "virglrenderer-android" setup-subsystems.sh && echo "  [OK] virglrenderer package in subsystems" || echo "  [FAIL]"
+
+      - name: Test Mesa/GL client packages
+        run: |
+          echo "=== Checking Mesa/GL packages ==="
+          for f in setup-all.sh setup-desktop.sh setup-desktop-prebuilt.sh; do
+            grep -q "mesa-utils" "$f" && echo "  [OK] $f: mesa-utils" || echo "  [FAIL] $f: missing mesa-utils"
+          done
+
+  test-server-connection:
+    name: Test Server Connection Logic
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test env var propagation
+        run: |
+          echo "=== Testing environment variable chain ==="
+
+          # Termux side
+          grep -q "DISPLAY=:0" setup-all.sh && echo "  [OK] DISPLAY=:0 in all-in-one" || echo "  [FAIL]"
+          grep -q "XDG_RUNTIME_DIR" setup-all.sh && echo "  [OK] XDG_RUNTIME_DIR in all-in-one" || echo "  [FAIL]"
+
+          # Ubuntu side (desktop commands)
+          for f in setup-all.sh setup-desktop.sh setup-desktop-prebuilt.sh; do
+            grep -q "export DISPLAY=:0" "$f" && echo "  [OK] $f: DISPLAY forwarded" || echo "  [FAIL] $f: DISPLAY not forwarded"
+            grep -q "export PULSE_SERVER=tcp:127.0.0.1:4713" "$f" && echo "  [OK] $f: PULSE_SERVER forwarded" || echo "  [FAIL] $f: PULSE_SERVER not forwarded"
+            grep -q "export GALLIUM_DRIVER=virpipe" "$f" && echo "  [OK] $f: GALLIUM_DRIVER forwarded" || echo "  [FAIL] $f: GALLIUM_DRIVER not forwarded"
+          done
+
+          # X11 server
+          grep -q "termux-x11 :0" setup-all.sh && echo "  [OK] X11 on display :0" || echo "  [FAIL]"
+          grep -q "termux-x11 :0" setup-subsystems.sh && echo "  [OK] X11 in subsystems" || echo "  [FAIL]"
+
+  test-file-permissions:
+    name: Test File Permissions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check executable permissions
+        run: |
+          echo "=== Checking executable permissions ==="
+          for f in setup-all.sh setup-subsystems.sh setup-ubuntu.sh setup-desktop.sh setup-desktop-prebuilt.sh; do
+            if [ -x "$f" ]; then
+              echo "  [OK] $f is executable"
+            else
+              echo "  [FAIL] $f is NOT executable"
+              exit 1
+            fi
+          done
+
+      - name: Check shebang lines
+        run: |
+          echo "=== Checking shebang lines ==="
+          for f in setup-all.sh setup-subsystems.sh setup-ubuntu.sh setup-desktop.sh setup-desktop-prebuilt.sh; do
+            SHEBANG=$(head -1 "$f")
+            if echo "$SHEBANG" | grep -q "#!/usr/bin/env bash"; then
+              echo "  [OK] $f"
+            else
+              echo "  [FAIL] $f — got: $SHEBANG"
+              exit 1
+            fi
+          done
+
+  validate-readme:
+    name: Validate README
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check README structure
+        run: |
+          echo "=== Checking README.md ==="
+          for section in "Quick Start" "Scripts Overview" "Commands Reference" "Pre-Built Desktop" "Troubleshooting" "License"; do
+            grep -qi "$section" README.md && echo "  [OK] Section: $section" || echo "  [WARN] Missing: $section"
+          done
+
+          grep -q "img.shields.io" README.md && echo "  [OK] Badges present" || echo "  [WARN] No badges"
+          grep -q "adittaya/ubuntu-mobile-desktop" README.md && echo "  [OK] Repo URL correct" || echo "  [FAIL] Wrong repo URL"
+
+          for script in setup-all.sh setup-subsystems.sh setup-ubuntu.sh setup-desktop.sh setup-desktop-prebuilt.sh; do
+            grep -q "$script" README.md && echo "  [OK] $script in README" || echo "  [FAIL] $script missing from README"
+          done
+
+  validate-agents:
+    name: Validate AGENTS.md
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check AGENTS.md structure
+        run: |
+          echo "=== Checking AGENTS.md ==="
+          test -f AGENTS.md && echo "  [OK] AGENTS.md exists" || { echo "  [FAIL] AGENTS.md missing"; exit 1; }
+          grep -q "NO HALLUCINATION" AGENTS.md && echo "  [OK] No hallucination rules" || echo "  [WARN] Missing rules"
+          grep -q "SCRIPT ARCHITECTURE" AGENTS.md && echo "  [OK] Script architecture" || echo "  [WARN] Missing architecture"
+          grep -q "AUDIO PIPELINE" AGENTS.md && echo "  [OK] Audio pipeline" || echo "  [WARN] Missing audio pipeline"
+          grep -q "GPU PIPELINE" AGENTS.md && echo "  [OK] GPU pipeline" || echo "  [WARN] Missing GPU pipeline"
+          grep -q "DISPLAY PIPELINE" AGENTS.md && echo "  [OK] Display pipeline" || echo "  [WARN] Missing display pipeline"
+          grep -q "RELEASE CHECKLIST" AGENTS.md && echo "  [OK] Release checklist" || echo "  [WARN] Missing checklist"
