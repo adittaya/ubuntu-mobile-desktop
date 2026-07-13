@@ -34,7 +34,7 @@ apt install -y \
     dbus-x11 xauth \
     mesa-utils alsa-utils \
     pavucontrol pulseaudio \
-    ffmpeg vlc \
+    firefox vlc ffmpeg \
     mousepad pluma \
     xterm lxterminal \
     thunar thunar-archive-plugin thunar-volman \
