@@ -2,15 +2,27 @@
 # =============================================================================
 # ALL-IN-ONE SETUP: Termux X11 + Ubuntu + XFCE Desktop on Android
 # =============================================================================
-# Combines all 3 scripts into a single installer:
-#   Script 1: Termux subsystems & global commands
-#   Script 2: Ubuntu proot install & login
-#   Script 3: XFCE desktop & launcher (inside Ubuntu)
+# Fast install with pre-built tarball OR full build from scratch.
 #
-# Usage:  bash setup-all.sh
+# Features:
+#   - Auto-downloads pre-built Ubuntu+XFCE tarball from GitHub Releases
+#   - Falls back to full install if download fails
+#   - Creates all Termux commands (start-audio, start-x11, etc.)
+#   - Creates Ubuntu proot with XFCE desktop
+#
+# Usage:  bash setup-all.sh [--fast|--full]
 # Docs:   https://github.com/adittaya/ubuntu-mobile-desktop
 # =============================================================================
 set -euo pipefail
+
+# ---------------------------------------------------------------------------
+# Config
+# ---------------------------------------------------------------------------
+REPO="adittaya/ubuntu-mobile-desktop"
+RELEASE_TAG="v1.0.0"
+TARBALL_NAME="ubuntu-mobile-desktop-rootfs-1.0.0-arm64.tar.gz"
+TARBALL_URL="https://github.com/${REPO}/releases/download/${RELEASE_TAG}/${TARBALL_NAME}"
+PROOT_DIR="/data/data/com.termux/files/usr/var/lib/proot-distro"
 
 # ---------------------------------------------------------------------------
 # Colors & helpers
@@ -24,6 +36,11 @@ hr()    { echo -e "${BLU}==================================================${NC}
 phase() { echo -e "\n${BLU}=== ${1} ===${NC}\n"; }
 
 # ---------------------------------------------------------------------------
+# Parse args
+# ---------------------------------------------------------------------------
+INSTALL_MODE="${1:---fast}"
+
+# ---------------------------------------------------------------------------
 # Preflight
 # ---------------------------------------------------------------------------
 if [ -z "${PREFIX:-}" ]; then
@@ -33,11 +50,15 @@ fi
 
 hr
 echo -e "${GRN}   Ubuntu Desktop Environment on Mobile — Full Setup   ${NC}"
-echo -e "${GRN}   https://github.com/adittaya/ubuntu-mobile-desktop   ${NC}"
+echo -e "${GRN}   https://github.com/${REPO}   ${NC}"
 hr
+echo ""
+echo -e "  Install mode: ${GRN}${INSTALL_MODE}${NC}"
+echo -e "  ${YEL}(use --full for fresh install, --fast for pre-built tarball)${NC}"
+echo ""
 
 # ===========================================================================
-# PHASE 1: SUBSYSTEMS & DEPENDENCIES
+# PHASE 1: SUBSYSTEMS & DEPENDENCIES (always runs)
 # ===========================================================================
 phase "PHASE 1/3: SUBSYSTEMS & DEPENDENCIES"
 
@@ -144,17 +165,98 @@ chmod +x "$PREFIX/bin/start-wayland"
 ok "Phase 1 complete — subsystems installed."
 
 # ===========================================================================
-# PHASE 2: UBUNTU INSTALL & LOGIN
+# PHASE 2: UBUNTU INSTALL
 # ===========================================================================
 phase "PHASE 2/3: UBUNTU INSTALL & LOGIN"
 
-info "Setting up Ubuntu environment..."
-if ! proot-distro list 2>/dev/null | grep -q "ubuntu"; then
-    proot-distro install ubuntu
-else
-    ok "Ubuntu already installed."
+# --- Try fast install (pre-built tarball) ----------------------------------
+try_fast_install() {
+    info "Attempting fast install (pre-built tarball)..."
+
+    # Check if already installed
+    if proot-distro list 2>/dev/null | grep -q "ubuntu"; then
+        warn "Ubuntu already installed — skipping download."
+        return 0
+    fi
+
+    # Download tarball
+    info "Downloading pre-built rootfs from GitHub Releases..."
+    info "URL: ${TARBALL_URL}"
+
+    local tmpdir="/tmp/ubuntu-mobile-setup"
+    mkdir -p "$tmpdir"
+
+    if wget --fail --timeout=60 --tries=3 \
+        -O "${tmpdir}/${TARBALL_NAME}" \
+        "${TARBALL_URL}" 2>&1; then
+
+        # Verify download
+        local fsize
+        fsize=$(stat -f%z "${tmpdir}/${TARBALL_NAME}" 2>/dev/null || stat -c%s "${tmpdir}/${TARBALL_NAME}" 2>/dev/null || echo "0")
+
+        if [ "$fsize" -lt 100000000 ]; then
+            warn "Downloaded file too small (${fsize} bytes) — may be corrupted."
+            rm -f "${tmpdir}/${TARBALL_NAME}"
+            return 1
+        fi
+
+        ok "Downloaded ${fsize} bytes"
+
+        # Extract to proot directory
+        info "Extracting rootfs..."
+
+        # Create proot directory structure
+        local rootfs_dir="${PROOT_DIR}/ubuntu/rootfs"
+        mkdir -p "$rootfs_dir"
+
+        # Extract
+        tar -xzf "${tmpdir}/${TARBALL_NAME}" \
+            -C "$rootfs_dir" \
+            --strip-components=1 2>/dev/null || {
+            warn "Tarball extraction failed"
+            rm -f "${tmpdir}/${TARBALL_NAME}"
+            return 1
+        }
+
+        # Clean up
+        rm -f "${tmpdir}/${TARBALL_NAME}"
+
+        ok "Rootfs extracted to ${rootfs_dir}"
+        return 0
+    else
+        warn "Download failed — falling back to full install."
+        rm -f "${tmpdir}/${TARBALL_NAME}"
+        return 1
+    fi
+}
+
+# --- Full install (from scratch) -------------------------------------------
+full_install() {
+    info "Installing Ubuntu from scratch..."
+
+    if ! proot-distro list 2>/dev/null | grep -q "ubuntu"; then
+        proot-distro install ubuntu
+    else
+        ok "Ubuntu already installed."
+    fi
+}
+
+# --- Execute install --------------------------------------------------------
+FAST_SUCCESS=false
+if [ "$INSTALL_MODE" = "--fast" ]; then
+    if try_fast_install; then
+        FAST_SUCCESS=true
+        ok "Fast install completed!"
+    else
+        warn "Fast install failed — falling back to full install."
+    fi
 fi
 
+if [ "$FAST_SUCCESS" = false ]; then
+    full_install
+fi
+
+# --- Configure Ubuntu -------------------------------------------------------
 info "Configuring ubuntu user and sudo privileges..."
 proot-distro login ubuntu --shared-tmp --no-sysvipc -- bash -c '
 apt update -y && apt install -y sudo
@@ -181,19 +283,26 @@ chmod +x "$PREFIX/bin/ubuntu"
 ok "Phase 2 complete — Ubuntu ready."
 
 # ===========================================================================
-# PHASE 3: DESKTOP & GUI DEPENDENCIES (inside Ubuntu)
+# PHASE 3: DESKTOP & GUI DEPENDENCIES
 # ===========================================================================
 phase "PHASE 3/3: DESKTOP & GUI DEPENDENCIES"
 
-info "Installing XFCE and client graphics/audio tools inside Ubuntu..."
-proot-distro login ubuntu --shared-tmp --no-sysvipc --user ubuntu -- bash -c '
-apt update -y
-apt install -y \
-    xfce4 xfce4-goodies \
-    dbus-x11 xauth \
-    mesa-utils alsa-utils
-'
+# Check if XFCE is already installed (fast install mode)
+if proot-distro login ubuntu --shared-tmp --no-sysvipc --user ubuntu -- \
+    bash -c 'dpkg -l xfce4 2>/dev/null | grep -q "^ii"' 2>/dev/null; then
+    ok "XFCE already installed (pre-built rootfs detected)."
+else
+    info "Installing XFCE and client graphics/audio tools inside Ubuntu..."
+    proot-distro login ubuntu --shared-tmp --no-sysvipc --user ubuntu -- bash -c '
+    apt update -y
+    apt install -y \
+        xfce4 xfce4-goodies \
+        dbus-x11 xauth \
+        mesa-utils alsa-utils
+    '
+fi
 
+# Create desktop launcher (always)
 info "Creating desktop global command inside Ubuntu..."
 proot-distro login ubuntu --shared-tmp --no-sysvipc --user ubuntu -- bash -c '
 cat > /usr/local/bin/desktop << "INNER"
@@ -226,6 +335,11 @@ hr
 echo -e "${GRN}   SETUP COMPLETE!${NC}"
 hr
 echo ""
+echo "  Install mode: ${GRN}${INSTALL_MODE}${NC}"
+if [ "$FAST_SUCCESS" = true ]; then
+    echo -e "  ${GRN}Used pre-built tarball (fast install)${NC}"
+fi
+echo ""
 echo "  Usage workflow:"
 echo ""
 echo "    1. start-audio        # Start PulseAudio"
@@ -239,5 +353,5 @@ echo "    bash setup-subsystems.sh"
 echo "    bash setup-ubuntu.sh"
 echo "    bash setup-desktop.sh  (inside Ubuntu)"
 echo ""
-echo "  Docs: https://github.com/adittaya/ubuntu-mobile-desktop"
+echo "  Docs: https://github.com/${REPO}"
 hr

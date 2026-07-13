@@ -31,6 +31,7 @@
 
 ## Features
 
+- **Fast install** — pre-built Ubuntu+XFCE tarball from GitHub Releases (~5 min)
 - **All-in-one installer** — single script sets up everything
 - **Modular scripts** — install only what you need, step by step
 - **Pre-built desktop** — ready-to-use XFCE with apps, themes, icons
@@ -38,6 +39,7 @@
 - **Audio support** — PulseAudio with AAudio sink for Android audio
 - **No root required** — runs entirely in proot
 - **8 convenience commands** — `start-audio`, `start-x11`, `ubuntu`, `desktop`, etc.
+- **GitHub Actions CI** — automated testing + release builds
 
 ---
 
@@ -57,25 +59,26 @@
 
 ## Quick Start
 
-### Option A: All-in-One (Recommended)
+### Option A: Fast Install (Pre-Built Tarball) — Recommended
 
 ```bash
-# Clone and run everything at once
+# Clone and run (auto-downloads pre-built Ubuntu+XFCE)
 git clone https://github.com/adittaya/ubuntu-mobile-desktop.git
 cd ubuntu-mobile-desktop
-bash setup-all.sh
+bash setup-all.sh --fast
 ```
 
-Then:
+This downloads a pre-built Ubuntu ARM64 rootfs with XFCE, Firefox, VLC, themes, and icons already installed. **~5 minutes vs ~20 minutes.**
+
+### Option B: All-in-One (Fresh Install)
+
 ```bash
-start-audio
-start-x11
-# Open Termux X11 app
-ubuntu
-desktop
+bash setup-all.sh --full
 ```
 
-### Option B: Step-by-Step (Modular)
+Builds everything from scratch. Slower but doesn't need network for packages.
+
+### Option C: Step-by-Step (Modular)
 
 ```bash
 # Step 1: Install subsystems (Termux)
@@ -253,7 +256,7 @@ ubuntu-mobile-desktop/
 ├── AGENTS.md                    # Project rules & AI reminders
 ├── LICENSE                      # MIT License
 ├── CONTRIBUTING.md              # Contribution guidelines
-├── setup-all.sh                 # Script 0: All-in-one installer
+├── setup-all.sh                 # All-in-one installer (fast/full modes)
 ├── setup-subsystems.sh          # Script 1: Termux packages & commands
 ├── setup-ubuntu.sh              # Script 2: Ubuntu install & login
 ├── setup-desktop.sh             # Script 3: Minimal XFCE desktop
@@ -261,7 +264,8 @@ ubuntu-mobile-desktop/
 ├── .gitignore
 ├── .github/
 │   └── workflows/
-│       └── test.yml             # GitHub Actions CI tests
+│       ├── test.yml             # CI tests (lint, structure, audio, GPU)
+│       └── build-release.yml    # Builds pre-built rootfs tarball
 └── docs/
     └── TROUBLESHOOTING.md       # Common issues & fixes
 ```
