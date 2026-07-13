@@ -4,17 +4,13 @@ on:
   push:
     branches: [main]
     paths:
-      - 'setup-all.sh'
-      - 'setup-desktop-prebuilt.sh'
-      - '.github/workflows/build-release.yml'
+      - "setup-all.sh"
+      - "setup-desktop-prebuilt.sh"
+      - ".github/workflows/build-release.yml"
   workflow_dispatch:
 
 permissions:
   contents: write
-
-env:
-  ROOTFS_NAME: ubuntu-mobile-desktop-rootfs
-  ROOTFS_VERSION: "1.0.0"
 
 jobs:
   build-rootfs:
@@ -34,243 +30,133 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq \
             qemu-user-static \
-            qemu-user-binfmt-misc \
             debootstrap \
-            binfmt-support \
-            libguestfs-tools \
-            pigz
-          sudo update-binfmts --enable qemu-aarch64
-          sudo update-binfmts --display qemu-aarch64
+            binfmt-support
+          sudo update-binfmts --enable qemu-aarch64 || true
 
       - name: Create ARM64 Ubuntu rootfs
         run: |
-          echo "=== Building Ubuntu 22.04 ARM64 rootfs ==="
-
+          echo "Building Ubuntu 22.04 ARM64 rootfs..."
           sudo mkdir -p /opt/rootfs
-
-          # Bootstrap Ubuntu 22.04 arm64
           sudo debootstrap \
             --arch=arm64 \
             --variant=minbase \
-            --include=ca-certificates,curl,wget,gnupg \
+            --include=ca-certificates,curl,wget,gnupg,locales \
             jammy \
             /opt/rootfs \
             http://ports.ubuntu.com/ubuntu-ports/
+          echo "Base rootfs created"
 
-          echo "  [OK] Base rootfs created"
-
-      - name: Install packages inside rootfs
+      - name: Configure apt sources
         run: |
-          echo "=== Installing packages in chroot ==="
+          echo "deb http://ports.ubuntu.com/ubuntu-ports/ jammy main restricted universe multiverse" | sudo tee /opt/rootfs/etc/apt/sources.list
+          echo "deb http://ports.ubuntu.com/ubuntu-ports/ jammy-updates main restricted universe multiverse" | sudo tee -a /opt/rootfs/etc/apt/sources.list
+          echo "deb http://ports.ubuntu.com/ubuntu-ports/ jammy-security main restricted universe multiverse" | sudo tee -a /opt/rootfs/etc/apt/sources.list
 
-          # Copy qemu binary for chroot
+      - name: Install packages in chroot
+        run: |
           sudo cp /usr/bin/qemu-aarch64-static /opt/rootfs/usr/bin/ 2>/dev/null || true
-
-          # Configure DNS
           sudo cp /etc/resolv.conf /opt/rootfs/etc/resolv.conf 2>/dev/null || true
-
-          # Configure apt sources
-          sudo tee /opt/rootfs/etc/apt/sources.list > /dev/null << 'EOF'
-deb http://ports.ubuntu.com/ubuntu-ports/ jammy main restricted universe multiverse
-deb http://ports.ubuntu.com/ubuntu-ports/ jammy-updates main restricted universe multiverse
-deb http://ports.ubuntu.com/ubuntu-ports/ jammy-security main restricted universe multiverse
-deb http://ports.ubuntu.com/ubuntu-ports/ jammy-backports main restricted universe multiverse
-EOF
-
-          # Install core packages
-          sudo chroot /opt/rootfs /bin/bash -c '
-            export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-            export DEBIAN_FRONTEND=noninteractive
-
-            apt-get update -qq
-            apt-get install -y -qq \
-              sudo \
-              xfce4 xfce4-goodies \
-              dbus-x11 xauth \
-              mesa-utils alsa-utils \
-              pavucontrol pulseaudio \
-              firefox vlc ffmpeg \
-              mousepad pluma \
-              xterm lxterminal \
-              thunar thunar-archive-plugin thunar-volman \
-              ristretto parole \
-              xdg-utils xdg-user-dirs \
-              fonts-noto fonts-liberation \
-              arc-theme papirus-icon-theme \
-              wget curl git htop neofetch tree \
-              network-manager network-manager-gnome \
-              gnome-screenshot xfce4-screenshooter \
-              bash-completion locales
-
-            # Configure locale
-            locale-gen en_US.UTF-8 2>/dev/null || true
-
-            # Clean up
-            apt-get clean
-            rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-          '
-
-          echo "  [OK] Packages installed"
+          sudo chroot /opt/rootfs /bin/bash -c 'export DEBIAN_FRONTEND=noninteractive && apt-get update -qq && apt-get install -y -qq sudo xfce4 xfce4-goodies dbus-x11 xauth mesa-utils alsa-utils pavucontrol pulseaudio firefox vlc ffmpeg mousepad pluma xterm lxterminal thunar thunar-archive-plugin thunar-volman ristretto parole xdg-utils xdg-user-dirs fonts-noto fonts-liberation arc-theme papirus-icon-theme wget curl git htop neofetch tree network-manager network-manager-gnome gnome-screenshot xfce4-screenshooter bash-completion && locale-gen en_US.UTF-8 2>/dev/null || true && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*'
+          echo "Packages installed"
 
       - name: Configure XFCE desktop
         run: |
-          echo "=== Pre-configuring XFCE ==="
-
-          # Create ubuntu user directory structure
           sudo mkdir -p /opt/rootfs/home/ubuntu/.config/xfce4/xfconf/xfce-perchannel-xml
-          sudo mkdir -p /opt/rootfs/home/ubuntu/.config/xfce4/panel
           sudo mkdir -p /opt/rootfs/home/ubuntu/.config/Mousepad
           sudo mkdir -p /opt/rootfs/home/ubuntu/Wallpapers
 
-          # Desktop settings
-          sudo tee /opt/rootfs/home/ubuntu/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml > /dev/null << 'XMLEOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<channel name="xfce4-desktop" version="1.0">
-  <property name="backdrop" type="empty">
-    <property name="screen0" type="empty">
-      <property name="monitorscreen" type="empty">
-        <property name="workspace0" type="empty">
-          <property name="last-image" type="string" value="/usr/share/backgrounds/xfce/xfce-blue.svg"/>
-        </property>
-      </property>
-    </property>
-  </property>
-  <property name="desktop-icons" type="empty">
-    <property name="style" type="int" value="2"/>
-  </property>
-</channel>
-XMLEOF
+          cat << 'XMLEOF' | sudo tee /opt/rootfs/home/ubuntu/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml
+          <?xml version="1.0" encoding="UTF-8"?>
+          <channel name="xfce4-desktop" version="1.0">
+            <property name="backdrop" type="empty">
+              <property name="screen0" type="empty">
+                <property name="monitorscreen" type="empty">
+                  <property name="workspace0" type="empty">
+                    <property name="last-image" type="string" value="/usr/share/backgrounds/xfce/xfce-blue.svg"/>
+                  </property>
+                </property>
+              </property>
+            </property>
+          </channel>
+          XMLEOF
 
-          # Window Manager settings
-          sudo tee /opt/rootfs/home/ubuntu/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml > /dev/null << 'XMLEOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<channel name="xfwm4" version="1.0">
-  <property name="general" type="empty">
-    <property name="theme" type="string" value="Arc-Dark"/>
-    <property name="title_font" type="string" value="Noto Sans Bold 10"/>
-    <property name="show_frame_shadow" type="bool" value="true"/>
-  </property>
-</channel>
-XMLEOF
+          cat << 'XMLEOF' | sudo tee /opt/rootfs/home/ubuntu/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml
+          <?xml version="1.0" encoding="UTF-8"?>
+          <channel name="xfwm4" version="1.0">
+            <property name="general" type="empty">
+              <property name="theme" type="string" value="Arc-Dark"/>
+              <property name="title_font" type="string" value="Noto Sans Bold 10"/>
+            </property>
+          </channel>
+          XMLEOF
 
-          # Appearance settings
-          sudo tee /opt/rootfs/home/ubuntu/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml > /dev/null << 'XMLEOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<channel name="xsettings" version="1.0">
-  <property name="Net" type="empty">
-    <property name="ThemeName" type="string" value="Arc-Dark"/>
-    <property name="IconThemeName" type="string" value="Papirus-Dark"/>
-  </property>
-  <property name="Gtk" type="empty">
-    <property name="FontName" type="string" value="Noto Sans 10"/>
-    <property name="MonospaceFontName" type="string" value="Noto Sans Mono 10"/>
-  </property>
-</channel>
-XMLEOF
+          cat << 'XMLEOF' | sudo tee /opt/rootfs/home/ubuntu/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml
+          <?xml version="1.0" encoding="UTF-8"?>
+          <channel name="xsettings" version="1.0">
+            <property name="Net" type="empty">
+              <property name="ThemeName" type="string" value="Arc-Dark"/>
+              <property name="IconThemeName" type="string" value="Papirus-Dark"/>
+            </property>
+            <property name="Gtk" type="empty">
+              <property name="FontName" type="string" value="Noto Sans 10"/>
+            </property>
+          </channel>
+          XMLEOF
 
-          # Mousepad config
-          sudo tee /opt/rootfs/home/ubuntu/.config/Mousepad/mousepad.conf > /dev/null << 'EOF'
-[Preferences]
-Font-Name=Noto Sans Mono 11
-Show-Line-Numbers=true
-Highlight-current-line=true
-Auto-indent=true
-Word-wrap=true
-EOF
-
-          # Set ownership
           sudo chown -R 1000:1000 /opt/rootfs/home/ubuntu/.config 2>/dev/null || true
           sudo chown -R 1000:1000 /opt/rootfs/home/ubuntu/Wallpapers 2>/dev/null || true
-
-          echo "  [OK] XFCE configured"
+          echo "XFCE configured"
 
       - name: Create desktop launcher
         run: |
-          echo "=== Creating desktop command ==="
-
-          sudo tee /opt/rootfs/usr/local/bin/desktop > /dev/null << 'CMD'
-#!/usr/bin/env bash
-set -e
-
-export DISPLAY=:0
-export PULSE_SERVER=tcp:127.0.0.1:4713
-export GALLIUM_DRIVER=virpipe
-
-unset DBUS_SESSION_BUS_ADDRESS
-
-USER_RUNTIME_DIR="/run/user/$(id -u)"
-mkdir -p "$USER_RUNTIME_DIR"
-chmod 700 "$USER_RUNTIME_DIR"
-
-echo -e "\e[1;32m[+] Launching Pre-Built XFCE Desktop...\e[0m"
-echo -e "\e[1;33m[+] Theme: Arc-Dark | Icons: Papirus-Dark\e[0m"
-echo -e "\e[1;33m[+] Shortcuts: Super+T=Terminal, Super+E=Files\e[0m"
-sleep 1
-
-exec dbus-launch --exit-with-session startxfce4
-CMD
-
+          cat << 'CMD' | sudo tee /opt/rootfs/usr/local/bin/desktop
+          #!/usr/bin/env bash
+          set -e
+          export DISPLAY=:0
+          export PULSE_SERVER=tcp:127.0.0.1:4713
+          export GALLIUM_DRIVER=virpipe
+          unset DBUS_SESSION_BUS_ADDRESS
+          USER_RUNTIME_DIR="/run/user/$(id -u)"
+          mkdir -p "$USER_RUNTIME_DIR"
+          chmod 700 "$USER_RUNTIME_DIR"
+          echo -e "\e[1;32m[+] Launching Pre-Built XFCE Desktop...\e[0m"
+          sleep 1
+          exec dbus-launch --exit-with-session startxfce4
+          CMD
           sudo chmod +x /opt/rootfs/usr/local/bin/desktop
+          echo "Desktop launcher created"
 
-          echo "  [OK] Desktop launcher created"
-
-      - name: Cleanup rootfs
+      - name: Cleanup and create tarball
         run: |
-          echo "=== Cleaning up rootfs ==="
-
-          # Remove unnecessary files
           sudo rm -rf /opt/rootfs/var/cache/apt/archives/*.deb
           sudo rm -rf /opt/rootfs/var/lib/apt/lists/*
-          sudo rm -rf /opt/rootfs/tmp/*
-          sudo rm -rf /opt/rootfs/var/tmp/*
-          sudo rm -rf /opt/rootfs/usr/share/doc/*
-          sudo rm -rf /opt/rootfs/usr/share/man/*
-          sudo rm -rf /opt/rootfs/usr/share/info/*
-          sudo rm -rf /opt/rootfs/usr/share/locale/*
-          sudo rm -rf /opt/rootfs/usr/share/i18n/*
-
-          # Remove qemu binary (not needed in final rootfs)
+          sudo rm -rf /opt/rootfs/tmp/* /opt/rootfs/var/tmp/*
+          sudo rm -rf /opt/rootfs/usr/share/doc/* /opt/rootfs/usr/share/man/*
           sudo rm -f /opt/rootfs/usr/bin/qemu-aarch64-static
 
-          # Show size
-          echo "Rootfs size:"
-          sudo du -sh /opt/rootfs
-
-      - name: Create tarball
-        run: |
-          echo "=== Creating release tarball ==="
+          echo "Rootfs size: $(sudo du -sh /opt/rootfs | cut -f1)"
 
           cd /opt
-          sudo tar -czf /tmp/${{ env.ROOTFS_NAME }}-${{ env.ROOTFS_VERSION }}-arm64.tar.gz \
-            --transform='s|^ubuntu-mobile-desktop-rootfs|ubuntu-mobile-desktop-rootfs|' \
-            -C /opt rootfs/
+          sudo tar -czf /tmp/ubuntu-mobile-desktop-rootfs-1.0.0-arm64.tar.gz \
+            -C /opt rootfs/ \
+            --transform='s|^rootfs|ubuntu-mobile-desktop-rootfs-1.0.0|'
 
-          # Rename rootfs folder inside tar
-          cd /tmp
-          mkdir -p repack && cd repack
-          sudo tar -xzf /tmp/${{ env.ROOTFS_NAME }}-${{ env.ROOTFS_VERSION }}-arm64.tar.gz
-          sudo mv rootfs ${{ env.ROOTFS_NAME }}-${{ env.ROOTFS_VERSION }}
-          sudo tar -czf /tmp/${{ env.ROOTFS_NAME }}-${{ env.ROOTFS_VERSION }}-arm64.tar.gz \
-            ${{ env.ROOTFS_NAME }}-${{ env.ROOTFS_VERSION }}/
-          sudo rm -rf /tmp/repack
-
-          # Show final size
-          ls -lh /tmp/${{ env.ROOTFS_NAME }}-${{ env.ROOTFS_VERSION }}-arm64.tar.gz
-
-          echo "  [OK] Tarball created"
+          ls -lh /tmp/ubuntu-mobile-desktop-rootfs-1.0.0-arm64.tar.gz
+          echo "Tarball created"
 
       - name: Create checksum
         run: |
           cd /tmp
-          sha256sum ${{ env.ROOTFS_NAME }}-${{ env.ROOTFS_VERSION }}-arm64.tar.gz > \
-            ${{ env.ROOTFS_NAME }}-${{ env.ROOTFS_VERSION }}-arm64.tar.gz.sha256
-          cat ${{ env.ROOTFS_NAME }}-${{ env.ROOTFS_VERSION }}-arm64.tar.gz.sha256
+          sha256sum ubuntu-mobile-desktop-rootfs-1.0.0-arm64.tar.gz > \
+            ubuntu-mobile-desktop-rootfs-1.0.0-arm64.tar.gz.sha256
+          cat ubuntu-mobile-desktop-rootfs-1.0.0-arm64.tar.gz.sha256
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: rootfs-tarball
-          path: /tmp/${{ env.ROOTFS_NAME }}-${{ env.ROOTFS_VERSION }}-arm64*
+          path: /tmp/ubuntu-mobile-desktop-rootfs-1.0.0-arm64*
           retention-days: 1
 
   create-release:
@@ -289,8 +175,8 @@ CMD
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ env.ROOTFS_VERSION }}
-          name: "Pre-Built Ubuntu Desktop v${{ env.ROOTFS_VERSION }}"
+          tag_name: v1.0.0
+          name: "Pre-Built Ubuntu Desktop v1.0.0"
           body: |
             ## Pre-Built Ubuntu Desktop for Android
 
@@ -298,36 +184,24 @@ CMD
 
             ### What's Included
             - Ubuntu 22.04 (Jammy) ARM64
-            - XFCE4 Desktop — Arc-Dark theme, Papirus-Dark icons
+            - XFCE4 Desktop with Arc-Dark theme, Papirus-Dark icons
             - Firefox, VLC, File Manager, Terminal, Text Editor
             - Pre-configured panel, shortcuts, wallpapers
             - Audio (PulseAudio) + GPU (VirGL) support
 
             ### Quick Install
             ```bash
-            # Clone the repo
             git clone https://github.com/adittaya/ubuntu-mobile-desktop.git
             cd ubuntu-mobile-desktop
-
-            # Run installer (auto-downloads this tarball)
-            bash setup-all.sh
-            ```
-
-            ### Manual Install
-            ```bash
-            # Download tarball
-            wget https://github.com/adittaya/ubuntu-mobile-desktop/releases/download/v${{ env.ROOTFS_VERSION }}/ubuntu-mobile-desktop-rootfs-${{ env.ROOTFS_VERSION }}-arm64.tar.gz
-
-            # Extract to proot directory
-            proot-distro login ubuntu --shared-tmp --no-sysvipc -- tar -xzf /path/to/tarball -C / --strip-components=1
+            bash setup-all.sh --fast
             ```
 
             ### Verify Checksum
             ```bash
-            sha256sum -c ubuntu-mobile-desktop-rootfs-${{ env.ROOTFS_VERSION }}-arm64.tar.gz.sha256
+            sha256sum -c ubuntu-mobile-desktop-rootfs-1.0.0-arm64.tar.gz.sha256
             ```
           files: |
-            /tmp/release/ubuntu-mobile-desktop-rootfs-${{ env.ROOTFS_VERSION }}-arm64.tar.gz
-            /tmp/release/ubuntu-mobile-desktop-rootfs-${{ env.ROOTFS_VERSION }}-arm64.tar.gz.sha256
+            /tmp/release/ubuntu-mobile-desktop-rootfs-1.0.0-arm64.tar.gz
+            /tmp/release/ubuntu-mobile-desktop-rootfs-1.0.0-arm64.tar.gz.sha256
           draft: false
           prerelease: false
